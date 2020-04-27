@@ -15,34 +15,33 @@ import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.MatcherAssert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 public class UserProducerTest {
 
-    private Duration totalTimeout = Duration.ofMinutes(3);
-
-    private static final String topicName = "TestTopic";
-
-    private String consumerGroup = "sample";
-
+    private static final String TOPIC_NAME = "TestTopic";
     @ClassRule
-    public static EmbeddedKafkaRule rule = new EmbeddedKafkaRule(1, false, topicName);
-
+    public static EmbeddedKafkaRule rule = new EmbeddedKafkaRule(1, false, TOPIC_NAME);
+    private Duration totalTimeout = Duration.ofMinutes(3);
+    private String consumerGroup = "sample";
     private Generator<User> userGenerator = Generators.longGenerator().flatMap(userId ->
-        Generators.oneOf("Kamil", "Artur", "Leszek", "Iwona", "Elżbieta", "Andrzej").flatMap(name ->
-                Generators.oneOf("Owczarek", "Mazur", "Wołyniec").flatMap(surname ->
-                        Generators.range(1, 100).map(age ->
-                                new User(userId, name, surname, age)
-                        )
-                )
-        )
+            Generators.oneOf("Kamil", "Artur", "Leszek", "Iwona", "Elżbieta", "Andrzej").flatMap(name ->
+                    Generators.oneOf("Owczarek", "Mazur", "Wołyniec").flatMap(surname ->
+                            Generators.range(1, 100).map(age ->
+                                    new User(userId, name, surname, age)
+                            )
+                    )
+            )
     );
 
     private Generator<List<User>> usersGenerator =
@@ -50,7 +49,7 @@ public class UserProducerTest {
 
     private ObjectMapper mapper = new ObjectMapper();
 
-    private UserProducer producer = new UserProducer(mapper);
+    private UserProducer producer = new UserProducer(mapper, rule.getEmbeddedKafka().getBrokersAsString());
 
     @Test
     public void userProducerTest() throws InterruptedException, ExecutionException, TimeoutException {
@@ -66,7 +65,7 @@ public class UserProducerTest {
 
         KafkaConsumer<Long, String> consumer = new KafkaConsumer<>(consumerConfigs);
 
-        producer.produceUsers(rule.getEmbeddedKafka().getBrokersAsString(), topicName, users)
+        producer.produceUsers(TOPIC_NAME, users)
                 .get(totalTimeout.toMinutes(), TimeUnit.MINUTES);
 
 
