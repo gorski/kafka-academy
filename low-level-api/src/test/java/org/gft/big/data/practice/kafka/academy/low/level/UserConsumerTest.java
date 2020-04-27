@@ -29,15 +29,11 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 
 public class UserConsumerTest {
 
-    private Duration totalTimeout = Duration.ofMinutes(3);
-
-    private static final String topicName = "TestTopic";
-
-    private String consumerGroup = "sample";
-
+    private static final String TOPIC_NAME = "TestTopic";
     @ClassRule
-    public static EmbeddedKafkaRule rule = new EmbeddedKafkaRule(1, false, topicName);
-
+    public static EmbeddedKafkaRule rule = new EmbeddedKafkaRule(1, false, TOPIC_NAME);
+    private Duration totalTimeout = Duration.ofMinutes(3);
+    private String consumerGroup = "sample";
     private Generator<User> userGenerator = Generators.longGenerator().flatMap(userId ->
             Generators.oneOf("Kamil", "Artur", "Leszek", "Iwona", "Elżbieta", "Andrzej").flatMap(name ->
                     Generators.oneOf("Owczarek", "Mazur", "Wołyniec").flatMap(surname ->
@@ -48,12 +44,11 @@ public class UserConsumerTest {
             )
     );
 
-    private Generator<List<User>> usersGenerator =
-            Generators.streamOf(userGenerator).map(stream -> stream.limit(10).collect(Collectors.toList()));
+    private Generator<List<User>> usersGenerator = Generators.streamOf(userGenerator).map(stream -> stream.limit(10).collect(Collectors.toList()));
 
     private ObjectMapper mapper = new ObjectMapper();
 
-    private UserConsumer userConsumer = new UserConsumer(mapper, Duration.ofMillis(100));
+    private UserConsumer userConsumer = new UserConsumer(mapper, Duration.ofMillis(100), rule.getEmbeddedKafka().getBrokersAsString(), consumerGroup);
 
     @Test
     public void setUserConsumerTest() throws InterruptedException, ExecutionException, TimeoutException {
@@ -71,18 +66,18 @@ public class UserConsumerTest {
                 .map(value -> {
                     try {
                         String stringBody = mapper.writeValueAsString(value);
-                        return new ProducerRecord<Long, String>(topicName, value.getId(), stringBody);
+                        return new ProducerRecord<>(TOPIC_NAME, value.getId(), stringBody);
                     } catch (JsonProcessingException e) {
                         e.printStackTrace();
                         return null;
                     }
-        }).map(producer::send)
+                }).map(producer::send)
                 .map(Futurity::shift)
                 .reduce((left, right) -> left.thenCompose(any -> right))
                 .get()
                 .get(totalTimeout.toMillis(), TimeUnit.MILLISECONDS);
 
-        List<User> retrievedUsers = userConsumer.consumeUsers(rule.getEmbeddedKafka().getBrokersAsString(), topicName, "random", Duration.ofSeconds(10, 10), users.size());
+        List<User> retrievedUsers = userConsumer.consumeUsers(TOPIC_NAME, Duration.ofSeconds(10, 10), users.size());
 
         assertThat(retrievedUsers, containsInAnyOrder(users.toArray()));
     }
