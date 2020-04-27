@@ -1,5 +1,6 @@
 package org.gft.big.data.practice.kafka.academy.model;
 
+import java.beans.Transient;
 import java.io.Serializable;
 
 public class User implements Serializable {
@@ -55,13 +56,18 @@ public class User implements Serializable {
         this.age = age;
     }
 
+    @Transient
+    public String getNameAndSurname() {
+        return getName() + " " + getSurname();
+    }
+
     @Override
-    public String toString(){
+    public String toString() {
         return "User[id=" + id + ", name=" + name + ", surname=" + surname + ", age=" + age + "]";
     }
 
     @Override
-    public boolean equals(Object o){
+    public boolean equals(Object o) {
         if (o instanceof User) {
             User u = (User) o;
             return u.id == id && u.name.equals(name) && u.surname.equals(surname) && u.age == age;
